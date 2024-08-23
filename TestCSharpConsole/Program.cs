@@ -1,2 +1,2 @@
 ﻿// Basic Program
-KayakService.GetSearchResults("AUS", "BOI", DateOnly.FromDateTime(DateTime.Today.AddDays(1)));
+KayakService.GetSearchResults("AUS", "PHX", DateOnly.FromDateTime(DateTime.Today.AddDays(12)));
