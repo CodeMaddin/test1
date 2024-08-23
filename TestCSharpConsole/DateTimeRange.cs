@@ -12,7 +12,6 @@ namespace System
         [JsonIgnore]
         public TimeSpan Duration => Finish - Start; 
 
-
         public bool IsWithin(DateTimeRange range)
             => (Start >= range.Start) && (Finish <= range.Finish);
 

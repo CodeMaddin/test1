@@ -1,4 +1,2 @@
 ﻿// Basic Program
-int i = int.MaxValue;
-Console.WriteLine($"{i}");
-Console.WriteLine($"{i + 1}");
+KayakService.GetSearchResults("AUS", "BOI", DateOnly.FromDateTime(DateTime.Today.AddDays(1)));
