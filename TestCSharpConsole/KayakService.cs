@@ -97,11 +97,13 @@ internal static class KayakService
                 var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
                 Console.WriteLine("# EXCEPTION #");
                 // Save html to file
+                if(Directory.Exists("log") == false)
+                    Directory.CreateDirectory("log");
                 Console.WriteLine($"Saving copy of web page html to: \"err_webpage_{timestamp}.html\"");
-                File.WriteAllText($"err_webpage_{timestamp}.html", driver.PageSource);                
+                File.WriteAllText($"log/err_webpage_{timestamp}.html", driver.PageSource);                
                 // Take a screenshot of the page
                 Console.WriteLine($"Saving screenshot of web page to: \"err_screenshot_{timestamp}.png\"");
-                driver.TakeScreenshot().SaveAsFile($"err_screenshot_{timestamp}.png");
+                driver.TakeScreenshot().SaveAsFile($"log/err_screenshot_{timestamp}.png");
                 throw;
             }
         }
