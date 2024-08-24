@@ -8,8 +8,10 @@ using OpenQA.Selenium.Support.UI;
   
 internal static class KayakService
 {
-    public static void GetSearchResults(string originItaCode, string destinationItaCode, DateOnly departureDate, bool expandSearchResults = false)
+    public static IEnumerable<KayakFlight> GetSearchResults(string originItaCode, string destinationItaCode, DateOnly departureDate, bool expandSearchResults = false)
     {
+        var flights = new List<KayakFlight>();
+
         Console.WriteLine("Scraping search results from Kayak.com...");
         var searchBaseUrl = BuildFlightSearchBasePathUrl(originItaCode, destinationItaCode, departureDate);
         var searchUrl = $"{searchBaseUrl}?sort=price_a";
@@ -62,6 +64,7 @@ internal static class KayakService
                         Url = resultUrl,
                         Uid = resultId
                     };
+
                     // Print the result URL
                     //Console.WriteLine($"{resultUrl}");
                     // Write the rest as one line formatted as a table using fixed width columns
@@ -72,6 +75,8 @@ internal static class KayakService
 
                     // Segment data requires expanding the fare element and could cause the server to block us from bot detection
                     // ExtractSegmentData(driver, fareElement);
+
+                    flights.Add(flight);
                 }
             }
             catch (Exception)
@@ -80,6 +85,7 @@ internal static class KayakService
                 ScrapingService.SaveErrorFiles(driver, DateTime.Now);
                 throw;
             }
+            return flights;
         }
 
         static void ExtractSegmentData(WebDriver driver, IWebElement fareElement)
@@ -206,7 +212,6 @@ internal static class KayakService
             }
         }
     }
-
 
     // Example URL: https://www.kayak.com/flights/AUS-BOI/2024-09-20?sort=price_a
     private static string BuildFlightSearchBasePathUrl(string originItaCode, string destinationItaCode, DateOnly departureDate)
