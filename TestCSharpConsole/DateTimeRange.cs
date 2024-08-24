@@ -8,18 +8,18 @@ namespace System
         public static readonly DateTimeRange Never = new DateTimeRange(DateTime.MinValue, DateTime.MinValue);
 
         public DateTime Start { get;  }
-        public DateTime Finish { get; }
+        public DateTime End { get; }
         [JsonIgnore]
-        public TimeSpan Duration => Finish - Start; 
+        public TimeSpan Duration => End - Start; 
 
         public bool IsWithin(DateTimeRange range)
-            => (Start >= range.Start) && (Finish <= range.Finish);
+            => (Start >= range.Start) && (End <= range.End);
 
         public bool Intersects(DateTimeRange range)
-            => (Start <= range.Finish) && (Finish >= range.Start);
+            => (Start <= range.End) && (End >= range.Start);
 
         public bool Intersects(DateTime date)
-            => (Start <= date) && (Finish >= date);
+            => (Start <= date) && (End >= date);
 
         public static IEnumerable<DateTimeRange> Union(ICollection<DateTimeRange> ranges)
         {
@@ -27,7 +27,7 @@ namespace System
             {
                 ranges = ranges.OrderBy(r => r.Start).ToList();
                 var minStart = ranges.First().Start;
-                var maxFinish = ranges.First().Finish;
+                var maxFinish = ranges.First().End;
 
                 DateTime? lastFinish = null;
 
@@ -39,12 +39,12 @@ namespace System
                         yield return new DateTimeRange(minStart, maxFinish);
 
                         minStart = r.Start;
-                        maxFinish = r.Finish;
+                        maxFinish = r.End;
                     }
                     else
                     {
-                        if (r.Finish > maxFinish)
-                            maxFinish = r.Finish;
+                        if (r.End > maxFinish)
+                            maxFinish = r.End;
                     }
                 }
 
@@ -56,14 +56,14 @@ namespace System
         public IEnumerable<DateTimeRange> Inverse()
         {
             // The opposite of all time is never...
-            if (Start == DateTime.MinValue && Finish == DateTime.MaxValue)
+            if (Start == DateTime.MinValue && End == DateTime.MaxValue)
                 yield break;
 
             if (Start > DateTime.MinValue)
                 yield return new DateTimeRange(DateTime.MinValue, Start - DateTime.MinValue);
 
-            if (Finish < DateTime.MaxValue)
-                yield return new DateTimeRange(Finish, DateTime.MaxValue);
+            if (End < DateTime.MaxValue)
+                yield return new DateTimeRange(End, DateTime.MaxValue);
         }
 
         public IEnumerable<DateTimeRange> Intersect(IEnumerable<DateTimeRange> ranges)
@@ -79,14 +79,14 @@ namespace System
         public DateTimeRange Intersect(DateTimeRange r)
         {
             var rangeStart = r.Start;
-            var rangeFinish = r.Finish;
+            var rangeFinish = r.End;
             if (rangeStart < Start)
                 rangeStart = Start;
 
-            if (rangeFinish > Finish)
-                rangeFinish = Finish;
+            if (rangeFinish > End)
+                rangeFinish = End;
 
-            if (rangeFinish >= Start && rangeStart <= Finish
+            if (rangeFinish >= Start && rangeStart <= End
                 && rangeStart != rangeFinish)
                 return new DateTimeRange(rangeStart, rangeFinish);
             else
@@ -100,7 +100,7 @@ namespace System
                 throw new ArgumentOutOfRangeException($"{nameof(finish)}", finish, "The finish date cannot be before the start date.");
 
             Start = start;
-            Finish = finish;
+            End = finish;
         }
 
         #region Overrides & Impliments
@@ -108,15 +108,15 @@ namespace System
         public string ToString(bool includeTime)
         {
             if (Never == this) return "Never";
-            else if (includeTime) return $"{Start} - {Finish} [{Duration}]";
-            else return $"{Start:d} - {Finish:d} [{Duration.TotalDays:0}]";
+            else if (includeTime) return $"{Start} - {End} [{Duration}]";
+            else return $"{Start:d} - {End:d} [{Duration.TotalDays:0}]";
         }
 
         public override bool Equals(object? obj) => (obj is DateTimeRange range) && range == this;
-        public override int GetHashCode() => Start.GetHashCode() + Finish.GetHashCode();
+        public override int GetHashCode() => Start.GetHashCode() + End.GetHashCode();
 
-        public static bool operator ==(DateTimeRange v1, DateTimeRange v2) => (v1.Start == v2.Start) && (v1.Finish == v2.Finish);
-        public static bool operator !=(DateTimeRange v1, DateTimeRange v2) => (v1.Start != v2.Start) || (v1.Finish != v2.Finish);
+        public static bool operator ==(DateTimeRange v1, DateTimeRange v2) => (v1.Start == v2.Start) && (v1.End == v2.End);
+        public static bool operator !=(DateTimeRange v1, DateTimeRange v2) => (v1.Start != v2.Start) || (v1.End != v2.End);
         #endregion
     }
 }
