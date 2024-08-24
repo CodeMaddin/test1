@@ -1,0 +1,6 @@
+@TestCSharpWebApplication_HostAddress = http://localhost:5269
+
+GET {{TestCSharpWebApplication_HostAddress}}/flights/
+Accept: application/json
+
+###

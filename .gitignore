@@ -2,3 +2,5 @@ TestCSharpConsole/bin/
 TestCSharpConsole/obj/
 /.vs
 /log
+/TestCSharpWebApplication/bin/
+/TestCSharpWebApplication/obj
