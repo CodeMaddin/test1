@@ -18,7 +18,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // Define the API endpoint
 app.MapGet("/flights/{originItaCode}/{destinationItaCode}/{departureDate}", (string originItaCode, string destinationItaCode, string departureDate) =>
@@ -31,7 +31,7 @@ app.MapGet("/flights/{originItaCode}/{destinationItaCode}/{departureDate}", (str
     //var flights = KayakService.GetSearchResults(originItaCode, destinationItaCode, parsedDate);
     //return Results.Ok(flights);
     var text = $"Flights from {originItaCode} to {destinationItaCode} on {parsedDate:ddd MMM dd yyyy}";
-    return Results.Ok(text);
+    return Results.Ok("OK");
 })
 .WithName("GetFlights");
 //.WithOpenApi();
