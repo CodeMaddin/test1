@@ -1,4 +1,4 @@
-internal class KayakFlight
+public class KayakFlight
 {
     public string? OriginItaCode { get; set; }
     public string? DestinationItaCode { get; set; }

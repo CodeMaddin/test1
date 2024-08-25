@@ -30,8 +30,8 @@ app.MapGet("/flights/{originItaCode}/{destinationItaCode}/{departureDate}", (str
 
     //var flights = KayakService.GetSearchResults(originItaCode, destinationItaCode, parsedDate);
     //return Results.Ok(flights);
-    var text = $"Flights from {originItaCode} to {destinationItaCode} on {parsedDate:ddd MMM dd yyyy}";
-    return Results.Ok("OK");
+    //var text = $"Flights from {originItaCode} to {destinationItaCode} on {parsedDate:ddd MMM dd yyyy}";
+    return Results.Ok($"{Environment.MachineName} - {Environment.UserName} - {Environment.UserDomainName}  : {Environment.GetEnvironmentVariables().ToString()}");
 })
 .WithName("GetFlights");
 //.WithOpenApi();
