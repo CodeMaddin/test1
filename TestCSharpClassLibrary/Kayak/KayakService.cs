@@ -36,7 +36,6 @@ public static class KayakService
             }
 
             // Extract the flight & ticket data for each search result
-            PrintFlightHeaderRow();
             foreach (var fareElement in fareElements)
             {
                 KayakFlight? flight = null;
@@ -111,6 +110,7 @@ public static class KayakService
     private static WebDriver LoadResultsWebPage(string searchUrl)
     {
         // Use Selenium to scrape the search results
+        Console.WriteLine($"Loading web browser...");
         var driver = ScrapingService.CreateDefaultWebDriver();
         Console.WriteLine($"Navigating to URL: {searchUrl}");
         driver.Navigate().GoToUrl(searchUrl);
