@@ -3,4 +3,6 @@ TestCSharpConsole/obj/
 /.vs
 /log
 /TestCSharpWebApplication/bin/
-/TestCSharpWebApplication/obj
+/TestCSharpWebApplication/obj/
+/TestCSharpClassLibrary/obj/
+/TestCSharpClassLibrary/bin/
