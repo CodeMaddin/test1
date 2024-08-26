@@ -137,34 +137,32 @@ public static class KayakService
     {
         // Use Selenium to scrape the search results
         Console.WriteLine($"Loading web browser...");
-        using (var driver = ScrapingService.CreateDefaultWebDriver())
+        var driver = ScrapingService.CreateDefaultWebDriver();
+        try
         {
-            try
-            {
-                Console.WriteLine($"Navigating to URL: {searchUrl}");
-                driver.Navigate().GoToUrl(searchUrl);
-                // Wait for page to load
-                Console.Write("Waiting for... page load...");
-                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(25));
-                wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
+            Console.WriteLine($"Navigating to URL: {searchUrl}");
+            driver.Navigate().GoToUrl(searchUrl);
+            // Wait for page to load
+            Console.Write("Waiting for... page load...");
+            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(25));
+            wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
 
-                Console.Write(" search results...");
-                Thread.Sleep(TimeSpan.FromSeconds(1));
+            Console.Write(" search results...");
+            Thread.Sleep(TimeSpan.FromSeconds(1));
 
-                Console.Write(" [ go away spinner ]...");
-                wait.Until(d => d.FindElements(By.CssSelector(".bE-8-spinner")).Count == 0);
-                Console.WriteLine(" done");
+            Console.Write(" [ go away spinner ]...");
+            wait.Until(d => d.FindElements(By.CssSelector(".bE-8-spinner")).Count == 0);
+            Console.WriteLine(" done");
 
-                ExpandAllSearchResults(driver, maxResultExpantions);
-                return driver.PageSource;
-            }
-            catch (Exception ex)
-            {
-                ScrapingService.SaveErrorFiles(driver);
-                if (!Debugger.IsAttached)
-                    driver.Quit();
-                throw new Exception("Error loading search results", ex);
-            }
+            ExpandAllSearchResults(driver, maxResultExpantions);
+            return driver.PageSource;
+        }
+        catch (Exception ex)
+        {
+            ScrapingService.SaveErrorFiles(driver);
+            if (!Debugger.IsAttached)
+                driver.Quit();
+            throw new Exception("Error loading search results", ex);
         }
     }
 
