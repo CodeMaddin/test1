@@ -3,9 +3,96 @@ using OpenQA.Selenium;
 using System.Diagnostics;
 using OpenQA.Selenium.Support.Extensions;
 using System.Text.Json;
+using HtmlAgilityPack;
+
+internal static class Extensions
+{
+    public static string BracketText(this HtmlNode node)
+    {
+        return node?.OuterHtml[..(node.OuterHtml.IndexOf('>') + 1)].Trim() ?? "(null)";
+    }
+}
+
+// Make a special exception class for the scraping functions. It should have properties for the featureName, node, and xpath, and node title
+internal class ScrapingComponentException(string featureName, HtmlNode? node, string path, string message, Exception? innerException = null) : Exception(message, innerException)
+{
+    public string FeatureName { get; } = featureName;
+    public HtmlNode? Node { get; } = node;
+    public string Path { get; } = path;
+    public string NodeFirstLineText => Node?.BracketText() ?? "";
+}
 
 internal class ScrapingService
 {
+    internal static HtmlNodeCollection EnsureSelectNodes(string featureName, HtmlNode node, string xpath)
+    {
+        if(node == null)
+            throw new ScrapingComponentException(featureName, null, xpath, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
+
+        HtmlNodeCollection? results;
+        try
+        {
+            results = node.SelectNodes(xpath);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Error, failed to select nodes for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node.XPath})");
+            throw new ScrapingComponentException(featureName, node, xpath, $"Error, failed to select nodes for feature '{featureName}'", ex);
+        }
+        if (results == null || results.Count == 0)
+        {
+            Console.WriteLine($"Error, no nodes found for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node.XPath})");
+            throw new ScrapingComponentException(featureName, node, xpath, $"No nodes found for feature '{featureName}'");   
+        }
+        return results;
+    }
+
+    internal static HtmlNode EnsureSelectSingleNode(string featureName, HtmlNode node, string xpath)
+    {
+        if (node == null)
+            throw new ScrapingComponentException(featureName, null, xpath, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
+
+        HtmlNode? result;
+        try
+        {
+            result = node.SelectSingleNode(xpath);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Error, failed to select node for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node.XPath})");
+            throw new ScrapingComponentException(featureName, node, xpath, $"Failed to select node for feature '{featureName}'", ex);
+        }
+        if (result == null)
+        {
+            Console.WriteLine($"Error, no node found for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node?.XPath})");
+            throw new ScrapingComponentException(featureName, node, xpath, $"No node found for feature '{featureName}'");
+        }
+        return result;
+    }
+
+    internal static string EnsureGetAttributeValue(string featureName, HtmlNode node, string attributeName)
+    {
+        if (node == null)
+            throw new ScrapingComponentException(featureName, null, attributeName, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
+
+        string? attributeValue;
+        try
+        {
+            attributeValue = node.GetAttributeValue(attributeName, null);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Error, failed to get attribute '{attributeName}' for '{featureName}' on {node.BracketText()} @ ({node.XPath})");
+            throw new ScrapingComponentException(featureName, node, attributeName, $"Error, failed to get attribute '{attributeName}' for '{featureName}'", ex);
+        }
+        if (attributeValue == null)
+        {
+            Console.WriteLine($"Error, attribute '{attributeName}' not found for '{featureName}' on {node.BracketText()} @ ({node.XPath})");
+            throw new ScrapingComponentException(featureName, node, attributeName, $"Error, attribute '{attributeName}' not found for '{featureName}'");
+        }
+        return attributeValue;
+    }
+
     internal static T? GetCachedResults<T>(string cacheDirectory, string cacheKey, TimeSpan? expiration)
     {
         var cacheFilePath = Path.Combine(cacheDirectory, $"{cacheKey}.json");

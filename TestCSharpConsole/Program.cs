@@ -1,17 +1,15 @@
-﻿KayakService.PrintFlightHeaderRow();
-var departureDate = DateTime.Today.AddDays(25);
+﻿var departureDate = DateTime.Today.AddDays(25);
 var search = new KayakFlightSearch
 {
     OriginItaCode = "AUS",
-    DestinationItaCode = "PHX",
+    DestinationItaCode = "BOI",
     DepartureDate = DateOnly.FromDateTime(departureDate),
 
-    MaxStops = 0,
+    MaxStops = 1,
     TakeoffTimeRangeStart = new TimeOnly(8,0),
-    LandingTimeRangeEnd = new TimeOnly(12+6,0),
 
     ExpandSearchResults = true,
-    MaximumSearchResultExpansion = 2
+    MaximumSearchResultExpansion = 0,
 };
 foreach (var flight in KayakService.GetSearchResults(search))
 {

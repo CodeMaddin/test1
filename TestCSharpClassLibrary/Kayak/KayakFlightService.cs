@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using HtmlAgilityPack;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 
@@ -38,9 +41,12 @@ public static class KayakService
             $"-{search.MaxStops ?? -1}" +
             $"-{(int)(search.MaxFlightDuration?.TotalMinutes ?? -1)}" +
             $"-{(int)(search.MinLayoverTime?.TotalMinutes ?? -1)}-{(int)(search.MaxLayoverTime?.TotalMinutes ?? -1)}";
-        var cachedResults = ScrapingService.GetCachedResults<IEnumerable<KayakFlight>>(CacheDirectory, cacheKey, CacheExpiration);
 
-        if (cachedResults != null)
+
+        // TEMP: Don't return cached flight results so that we can test out the cached html
+        // Check for cached results
+        var cachedResults = ScrapingService.GetCachedResults<IEnumerable<KayakFlight>>(CacheDirectory, cacheKey, CacheExpiration);
+        if (false) //(cachedResults != null)
         {
             foreach(var result in cachedResults)
                 yield return result;
@@ -53,84 +59,69 @@ public static class KayakService
         var searchBaseUrl = BuildFlightSearchBasePathUrl(search.OriginItaCode, search.DestinationItaCode, search.DepartureDate);
         var searchUrl = $"{searchBaseUrl}?sort=price_a{BuildSearchParameters(search)}";
 
-        using(WebDriver driver = LoadResultsWebPage(searchUrl))
+        // Check for cached html
+        var html = ScrapingService.GetCachedResults<string>(CacheDirectory, cacheKey + "_html", CacheExpiration);
+        if (html == null)
         {
-            ReadOnlyCollection<IWebElement> fareElements = ReadOnlyCollection<IWebElement>.Empty;
-            try
-            {
-                if(search.ExpandSearchResults)
-                    ExpandAllSearchResults(driver, search.MaximumSearchResultExpansion);
-
-                // Find the search result items: div elements of class type: nrc6-mod-pres-multi-fare
-                fareElements = driver.FindElements(By.CssSelector(".nrc6-mod-pres-multi-fare"));
-            }
-            catch (Exception ex)
-            {
-                HandleException(driver, ex);
-                throw;
-            }
-
-            // Extract the flight & ticket data for each search result
-            foreach (var fareElement in fareElements)
-            {
-                KayakFlight? flight = null;
-                try
-                {
-                    var resultId = fareElement.GetAttribute("data-resultid");
-                    var resultUrl = $"{searchBaseUrl}/f{resultId}";
-
-                    // eg: "4:00 pm – 5:05 pm", "11:00 pm – 7:41 am\r\n+2"
-                    var flightTimesText = fareElement.FindElement(By.CssSelector("div.VY2U div.vmXl-mod-variant-large")).Text;
-                    // eg: "10h 41m"
-                    var flightDurationText = fareElement.FindElement(By.CssSelector("div.xdW8 div.vmXl-mod-variant-default")).Text;
-                    // eg: "Frontier"
-                    var carrierText = fareElement.FindElement(By.CssSelector("div.VY2U div.c_cgF-mod-variant-default")).Text;
-                    // eg: "$100"
-                    var ticketPriceText = fareElement.FindElement(By.CssSelector(".f8F1-price-text")).Text;
-                    // eg: "nonstop", "1 stop", "2 stops"
-                    var stopsText = fareElement.FindElements(By.CssSelector(".JWEO-stops-text"));
-                    var numberOfStops = stopsText.Count > 0 ? stopsText[0].Text.Contains("nonstop", StringComparison.InvariantCultureIgnoreCase) ? 0 : int.Parse(stopsText[0].Text.Split(' ')[0]) : 0;
-
-                    var flightTimes = flightTimesText.Split('–');
-                    var days = flightTimes[1].Contains('+') ? int.Parse(flightTimes[1].Split('+')[1]) : 0;
-                    var departureDateTime = search.DepartureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None));
-                    var arrivalDateTime = search.DepartureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[1].Split("+")[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None)).AddDays(days);
-
-                    flight = new KayakFlight
-                    {
-                        Provider = "kayak.com",
-                        Uid = resultId,
-                        Url = resultUrl,
-
-                        OriginItaCode = search.OriginItaCode,
-                        DestinationItaCode = search.DestinationItaCode,
-                        DepartureTime = departureDateTime,
-                        ArrivalTime = arrivalDateTime,
-                        Duration = TimeSpan.ParseExact(flightDurationText, "h\\h\\ m\\m", CultureInfo.InvariantCulture),
-                        Days = flightTimesText.Contains('+') ? int.Parse(flightTimesText.Split('+')[1]) : 0,
-                        CarrierName = carrierText,
-                        TotalPrice = decimal.Parse(ticketPriceText.TrimStart('$')),
-                        NumberOfStops = numberOfStops,
-                    };
-                }
-                catch (Exception ex)
-                {
-                    HandleException(driver, ex);
-                    throw;
-                }
-
-                flights.Add(flight);    
-                yield return flight;
-            }
+            html = GetResultsWebPageHtml(searchUrl, search.ExpandSearchResults ? search.MaximumSearchResultExpansion : 0);
+            // cache the html for debugging
+            ScrapingService.CacheResults(CacheDirectory, cacheKey + "_html", html);
         }
 
+        // Use HtmlAgilityPack to parse the HTML
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        // Find the search result items: div elements of class type: nrc6-mod-pres-multi-fare
+        var fareElements = ScrapingService.EnsureSelectNodes("fare elements", doc.DocumentNode, "//div[contains(@class, 'nrc6-mod-pres-multi-fare')]");
+
+        // Extract the flight & ticket data for each search result
+        foreach (var fareElement in fareElements)
+        {
+            var resultId = ScrapingService.EnsureGetAttributeValue("result id", fareElement, "data-resultid");
+            var resultUrl = $"{searchBaseUrl}/f{resultId}";
+
+            // eg: "4:00 pm – 5:05 pm", "11:00 pm – 7:41 am\r\n+2"
+            var flightTimesText = ScrapingService.EnsureSelectSingleNode("flight times", fareElement, ".//div[contains(@class, 'VY2U')]//div[contains(@class, 'vmXl-mod-variant-large')]").InnerText;
+            // eg: "10h 41m"
+            var flightDurationText = ScrapingService.EnsureSelectSingleNode("flight duration", fareElement, ".//div[contains(@class, 'xdW8')]//div[contains(@class, 'vmXl-mod-variant-default')]").InnerText;
+            // eg: "Frontier"
+            var carrierText = ScrapingService.EnsureSelectSingleNode("carrier", fareElement, ".//div[contains(@class, 'VY2U')]//div[contains(@class, 'c_cgF-mod-variant-default')]").InnerText;
+            // eg: "$100"
+            var ticketPriceText = ScrapingService.EnsureSelectSingleNode("ticket price", fareElement, ".//*[contains(@class, 'f8F1-price-text')]").InnerText;
+            // eg: "nonstop", "1 stop", "2 stops"
+            var stopsText = ScrapingService.EnsureSelectNodes("stops", fareElement, ".//*[contains(@class, 'JWEO-stops-text')]");
+            var numberOfStops = stopsText.Count > 0 ? stopsText[0].InnerText.Contains("nonstop", StringComparison.InvariantCultureIgnoreCase) ? 0 : int.Parse(stopsText[0].InnerText.Split(' ')[0]) : 0;
+
+            var flightTimes = flightTimesText.Split('–');
+            var days = flightTimes[1].Contains('+') ? int.Parse(flightTimes[1].Split('+')[1]) : 0;
+            var departureDateTime = search.DepartureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None));
+            var arrivalDateTime = search.DepartureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[1].Split("+")[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None)).AddDays(days);
+
+            var flight = new KayakFlight
+            {
+                Provider = "kayak.com",
+                Uid = resultId,
+                Url = resultUrl,
+
+                OriginItaCode = search.OriginItaCode,
+                DestinationItaCode = search.DestinationItaCode,
+                DepartureTime = departureDateTime,
+                ArrivalTime = arrivalDateTime,
+                Duration = TimeSpan.ParseExact(flightDurationText, "h\\h\\ m\\m", CultureInfo.InvariantCulture),
+                Days = flightTimesText.Contains('+') ? int.Parse(flightTimesText.Split('+')[1]) : 0,
+                CarrierName = carrierText,
+                TotalPrice = decimal.Parse(ticketPriceText.TrimStart('$')),
+                NumberOfStops = numberOfStops,
+            };
+
+
+            flights.Add(flight);
+            yield return flight;
+        }
+      
         // After scraping, cache the results
         ScrapingService.CacheResults(CacheDirectory, cacheKey, flights);
-    }
-
-    public static void PrintFlightHeaderRow()
-    {
-        Console.WriteLine($"{"Flight Times",-27}  {"Duration",-10}  {"Stops",5}  {"Carrier",-25}  {"Price",-10}");
     }
 
     public static void PrintFlightRow(KayakFlight flight)
@@ -142,34 +133,39 @@ public static class KayakService
         Console.WriteLine($"{flightTimesString,-27}  {flight.Duration,-10:h\\h\\ m\\m}  {flight.NumberOfStops,5}  {flight.CarrierName,-25}  ${flight.TotalPrice,-10:F2}");
     }
 
-    private static void HandleException(WebDriver driver, Exception ex)
-    {
-        Console.WriteLine("# EXCEPTION #");
-        Console.WriteLine(ex);
-        ScrapingService.SaveErrorFiles(driver, DateTime.Now);
-    }
-
-    private static WebDriver LoadResultsWebPage(string searchUrl)
+    private static string GetResultsWebPageHtml(string searchUrl, int maxResultExpantions)
     {
         // Use Selenium to scrape the search results
         Console.WriteLine($"Loading web browser...");
-        var driver = ScrapingService.CreateDefaultWebDriver();
-        Console.WriteLine($"Navigating to URL: {searchUrl}");
-        driver.Navigate().GoToUrl(searchUrl);
+        using (var driver = ScrapingService.CreateDefaultWebDriver())
+        {
+            try
+            {
+                Console.WriteLine($"Navigating to URL: {searchUrl}");
+                driver.Navigate().GoToUrl(searchUrl);
+                // Wait for page to load
+                Console.Write("Waiting for... page load...");
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(25));
+                wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
 
-        // Wait for page to load
-        Console.Write("Waiting for... page load...");
-        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(25));
-        wait.Until(d => ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete"));
+                Console.Write(" search results...");
+                Thread.Sleep(TimeSpan.FromSeconds(1));
 
-        Console.Write(" search results...");
-        Thread.Sleep(TimeSpan.FromSeconds(1));
+                Console.Write(" [ go away spinner ]...");
+                wait.Until(d => d.FindElements(By.CssSelector(".bE-8-spinner")).Count == 0);
+                Console.WriteLine(" done");
 
-        Console.Write(" [ go away spinner ]...");
-        wait.Until(d => d.FindElements(By.CssSelector(".bE-8-spinner")).Count == 0);
-        Console.WriteLine(" done");
-
-        return driver;
+                ExpandAllSearchResults(driver, maxResultExpantions);
+                return driver.PageSource;
+            }
+            catch (Exception ex)
+            {
+                ScrapingService.SaveErrorFiles(driver);
+                if (!Debugger.IsAttached)
+                    driver.Quit();
+                throw new Exception("Error loading search results", ex);
+            }
+        }
     }
 
     private static void ExpandAllSearchResults(WebDriver driver, int maxtimes)
@@ -179,7 +175,7 @@ public static class KayakService
         // Button to expand has this class=ULvh-button show-more-button
         // The buttons parent is a div with class "ULvh" it stays visible the entire time, until all results have been loaded, then the element is removed from the webpage
         Console.Write("Expanding search results...");
-        do
+        while ((count < maxtimes) && driver.FindElements(By.CssSelector(".ULvh")).Count > 0)
         {
             Console.Write($" expantion #{count+1}... ");
             var showMoreResultsButton = driver.FindElements(By.CssSelector(".ULvh-button")).FirstOrDefault();
@@ -193,14 +189,14 @@ public static class KayakService
                 Console.Write(" clicking... ");
                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", showMoreResultsButton);
 
-                count--;
+                count++;
 
                 // Sleep a random amount of time to avoid bot detection
                 Thread.Sleep(new Random((int)DateTime.Now.Ticks).Next(1000, 2000));
             }
             Thread.Sleep(0);
 
-        } while ((count < maxtimes) && driver.FindElements(By.CssSelector(".ULvh")).Count > 0);
+        }
         Console.WriteLine(" done");
     }
 
