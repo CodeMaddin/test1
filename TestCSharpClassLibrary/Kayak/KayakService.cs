@@ -6,11 +6,25 @@ using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.Extensions;
 using OpenQA.Selenium.Support.UI;
-  
+using System.Text.Json;
+
 public static class KayakService
 {
+    private const string CacheDirectory = "KayakCache";
+    private readonly static TimeSpan CacheExpiration = TimeSpan.FromHours(1);
+
     public static IEnumerable<KayakFlight> GetSearchResults(string originItaCode, string destinationItaCode, DateOnly departureDate, bool expandSearchResults = false)
     {
+        string cacheKey = $"{originItaCode}-{destinationItaCode}-{departureDate:yyyy-MM-dd}";
+        var cachedResults = GetCachedResults<IEnumerable<KayakFlight>>(cacheKey);
+
+        if (cachedResults != null)
+        {
+            foreach(var result in cachedResults)
+                yield return result;
+            yield break;
+        }
+
         var flights = new List<KayakFlight>();
 
         Console.WriteLine("Scraping search results from Kayak.com...");
@@ -22,8 +36,8 @@ public static class KayakService
             ReadOnlyCollection<IWebElement> fareElements = ReadOnlyCollection<IWebElement>.Empty;
             try
             {
-                if (expandSearchResults)
-                    ExpandAllSearchResults(driver);
+                //if (expandSearchResults)
+                ExpandAllSearchResults(driver, true);
 
                 // Find the search result items: div elements of class type: nrc6-mod-pres-multi-fare
                 fareElements = driver.FindElements(By.CssSelector(".nrc6-mod-pres-multi-fare"));
@@ -82,9 +96,46 @@ public static class KayakService
                     throw;
                 }
 
+                flights.Add(flight);    
                 yield return flight;
             }
         }
+
+        // After scraping, cache the results
+        CacheResults(cacheKey, flights);
+    }
+
+    private static T? GetCachedResults<T>(string cacheKey)
+    {
+        var cacheFilePath = Path.Combine(CacheDirectory, $"{cacheKey}.json");
+        Console.Write($"Checking cache ${cacheKey} @ {cacheFilePath} -- ");
+        if (!File.Exists(cacheFilePath))
+        {
+            Console.WriteLine($"MISS");
+            return default(T);
+        }
+
+        var fileInfo = new FileInfo(cacheFilePath);
+        if (fileInfo.LastWriteTime.Add(CacheExpiration) < DateTime.Now)
+        {
+            Console.WriteLine($"EXPIRED");
+            File.Delete(cacheFilePath);
+            return default(T);
+        }
+
+        Console.WriteLine($"HIT");
+        var json = File.ReadAllText(cacheFilePath);
+        return JsonSerializer.Deserialize<T>(json);
+    }
+
+    private static void CacheResults(string cacheKey, object item)
+    {
+        Directory.CreateDirectory(CacheDirectory);
+        var cacheFilePath = Path.Combine(CacheDirectory, $"{cacheKey}.json");
+        Console.Write($"Caching ${cacheKey} @ {cacheFilePath} -- ");
+        var json = JsonSerializer.Serialize(item);
+        File.WriteAllText(cacheFilePath, json);
+        Console.WriteLine($"DONE");
     }
 
     public static void PrintFlightHeaderRow()
@@ -130,7 +181,7 @@ public static class KayakService
         return driver;
     }
 
-    private static void ExpandAllSearchResults(WebDriver driver)
+    private static void ExpandAllSearchResults(WebDriver driver, bool onlyOnce = false)
     {
         // Expand the results by clicking the "Show more results button". After clicking the button, the pages loads a few more results, then the button shows up again. The button will not show back up once all the results have loaded
         // Button to expand has this class=ULvh-button show-more-button
@@ -151,7 +202,7 @@ public static class KayakService
             }
             Thread.Sleep(0);
 
-        } while (driver.FindElements(By.CssSelector(".ULvh")).Any());
+        } while (!onlyOnce && driver.FindElements(By.CssSelector(".ULvh")).Any());
     }
 
     // Example URL: https://www.kayak.com/flights/AUS-BOI/2024-09-20?sort=price_a
