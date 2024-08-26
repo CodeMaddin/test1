@@ -32,7 +32,14 @@ app.MapGet("/flights/{originItaCode}/{destinationItaCode}/{departureDate}", (str
     //return Results.Ok(flights);
     //var text = $"Flights from {originItaCode} to {destinationItaCode} on {parsedDate:ddd MMM dd yyyy}";
     //return Results.Ok($"{Environment.MachineName} - {Environment.UserName} - {Environment.UserDomainName}  : {Environment.GetEnvironmentVariables().ToString()}");
-    return Results.Ok(KayakService.GetSearchResults(originItaCode, destinationItaCode, parsedDate));
+    KayakService.PrintFlightHeaderRow();
+    var search = new KayakFlightSearch
+    {
+        OriginItaCode = originItaCode,
+        DestinationItaCode = destinationItaCode,
+        DepartureDate = parsedDate,
+    };
+    return Results.Ok(KayakService.GetSearchResults(search));
 
 })
 .WithName("GetFlights");

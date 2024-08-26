@@ -41,8 +41,7 @@ internal class ScrapingService
 
     internal static void SaveErrorFiles(WebDriver driver, DateTime? time = null)
     {
-        if (time is null)
-            time = DateTime.Now;
+        time ??= DateTime.Now;
 
         // Save html to file
         if (Directory.Exists("log") == false)

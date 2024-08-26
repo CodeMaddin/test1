@@ -3,14 +3,41 @@ using System.Globalization;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 
+public class KayakFlightSearch
+{
+    public required string OriginItaCode { get; set; }
+    public required string DestinationItaCode { get; set; }
+    public required DateOnly DepartureDate { get; set; }
+
+    public decimal? MaxPrice { get; set; }
+
+    public TimeOnly? TakeoffTimeRangeStart { get; set; }
+    public TimeOnly? TakeoffTimeRangeEnd { get; set; }
+    public TimeOnly? LandingTimeRangeStart { get; set; }
+    public TimeOnly? LandingTimeRangeEnd { get; set; }
+    public int? MaxStops { get; set; }
+    public TimeSpan? MaxFlightDuration { get; set; }
+    public TimeSpan? MinLayoverTime { get; set; }
+    public TimeSpan? MaxLayoverTime { get; set; }
+
+    public bool ExpandSearchResults { get; set; } = false;
+    public int MaximumSearchResultExpansion { get; set; } = 2;
+}
+
 public static class KayakService
 {
-    private const string CacheDirectory = "KayakCache";
+    private const string CacheDirectory = "KayakCache\\Flights";
     private readonly static TimeSpan CacheExpiration = TimeSpan.FromHours(1);
 
-    public static IEnumerable<KayakFlight> GetSearchResults(string originItaCode, string destinationItaCode, DateOnly departureDate, bool expandSearchResults = false)
+    public static IEnumerable<KayakFlight> GetSearchResults(KayakFlightSearch search)
     {
-        string cacheKey = $"{originItaCode}-{destinationItaCode}-{departureDate:yyyy-MM-dd}";
+        string cacheKey = $"{search.OriginItaCode}-{search.DestinationItaCode}-{search.DepartureDate:yyyyMMdd}" +
+            $"-{search.MaxPrice ?? 0}" +
+            $"-{search.TakeoffTimeRangeStart?.ToString("hhmm") ?? "0000"}-{search.TakeoffTimeRangeEnd?.ToString("hhmm") ?? "2359"}" +
+            $"-{search.LandingTimeRangeStart?.ToString("hhmm") ?? "0000"}-{search.LandingTimeRangeEnd?.ToString("hhmm") ?? "2359"}" +
+            $"-{search.MaxStops ?? -1}" +
+            $"-{(int)(search.MaxFlightDuration?.TotalMinutes ?? -1)}" +
+            $"-{(int)(search.MinLayoverTime?.TotalMinutes ?? -1)}-{(int)(search.MaxLayoverTime?.TotalMinutes ?? -1)}";
         var cachedResults = ScrapingService.GetCachedResults<IEnumerable<KayakFlight>>(CacheDirectory, cacheKey, CacheExpiration);
 
         if (cachedResults != null)
@@ -23,20 +50,19 @@ public static class KayakService
         var flights = new List<KayakFlight>();
 
         Console.WriteLine("Scraping search results from Kayak.com...");
-        var searchBaseUrl = BuildFlightSearchBasePathUrl(originItaCode, destinationItaCode, departureDate);
-        var searchUrl = $"{searchBaseUrl}?sort=price_a";
+        var searchBaseUrl = BuildFlightSearchBasePathUrl(search.OriginItaCode, search.DestinationItaCode, search.DepartureDate);
+        var searchUrl = $"{searchBaseUrl}?sort=price_a{BuildSearchParameters(search)}";
 
         using(WebDriver driver = LoadResultsWebPage(searchUrl))
         {
             ReadOnlyCollection<IWebElement> fareElements = ReadOnlyCollection<IWebElement>.Empty;
             try
             {
-                //if (expandSearchResults)
-                ExpandAllSearchResults(driver, true);
+                if(search.ExpandSearchResults)
+                    ExpandAllSearchResults(driver, search.MaximumSearchResultExpansion);
 
                 // Find the search result items: div elements of class type: nrc6-mod-pres-multi-fare
                 fareElements = driver.FindElements(By.CssSelector(".nrc6-mod-pres-multi-fare"));
-
             }
             catch (Exception ex)
             {
@@ -66,9 +92,9 @@ public static class KayakService
                     var numberOfStops = stopsText.Count > 0 ? stopsText[0].Text.Contains("nonstop", StringComparison.InvariantCultureIgnoreCase) ? 0 : int.Parse(stopsText[0].Text.Split(' ')[0]) : 0;
 
                     var flightTimes = flightTimesText.Split('–');
-                    var days = flightTimes[1].Contains("+") ? int.Parse(flightTimes[1].Split('+')[1]) : 0;
-                    var departureDateTime = departureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None));
-                    var arrivalDateTime = departureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[1].Split("+")[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None)).AddDays(days);
+                    var days = flightTimes[1].Contains('+') ? int.Parse(flightTimes[1].Split('+')[1]) : 0;
+                    var departureDateTime = search.DepartureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None));
+                    var arrivalDateTime = search.DepartureDate.ToDateTime(TimeOnly.ParseExact(flightTimes[1].Split("+")[0].Trim(), "h:mm tt", CultureInfo.InvariantCulture, DateTimeStyles.None)).AddDays(days);
 
                     flight = new KayakFlight
                     {
@@ -76,12 +102,12 @@ public static class KayakService
                         Uid = resultId,
                         Url = resultUrl,
 
-                        OriginItaCode = originItaCode,
-                        DestinationItaCode = destinationItaCode,
+                        OriginItaCode = search.OriginItaCode,
+                        DestinationItaCode = search.DestinationItaCode,
                         DepartureTime = departureDateTime,
                         ArrivalTime = arrivalDateTime,
                         Duration = TimeSpan.ParseExact(flightDurationText, "h\\h\\ m\\m", CultureInfo.InvariantCulture),
-                        Days = flightTimesText.Contains("+") ? int.Parse(flightTimesText.Split('+')[1]) : 0,
+                        Days = flightTimesText.Contains('+') ? int.Parse(flightTimesText.Split('+')[1]) : 0,
                         CarrierName = carrierText,
                         TotalPrice = decimal.Parse(ticketPriceText.TrimStart('$')),
                         NumberOfStops = numberOfStops,
@@ -116,9 +142,10 @@ public static class KayakService
         Console.WriteLine($"{flightTimesString,-27}  {flight.Duration,-10:h\\h\\ m\\m}  {flight.NumberOfStops,5}  {flight.CarrierName,-25}  ${flight.TotalPrice,-10:F2}");
     }
 
-    private static void HandleException(WebDriver driver, Exception? ex = null)
+    private static void HandleException(WebDriver driver, Exception ex)
     {
         Console.WriteLine("# EXCEPTION #");
+        Console.WriteLine(ex);
         ScrapingService.SaveErrorFiles(driver, DateTime.Now);
     }
 
@@ -139,20 +166,22 @@ public static class KayakService
         Thread.Sleep(TimeSpan.FromSeconds(1));
 
         Console.Write(" [ go away spinner ]...");
-        wait.Until(d => !d.FindElements(By.CssSelector(".bE-8-spinner")).Any());
+        wait.Until(d => d.FindElements(By.CssSelector(".bE-8-spinner")).Count == 0);
         Console.WriteLine(" done");
 
         return driver;
     }
 
-    private static void ExpandAllSearchResults(WebDriver driver, bool onlyOnce = false)
+    private static void ExpandAllSearchResults(WebDriver driver, int maxtimes)
     {
+        int count = 0;
         // Expand the results by clicking the "Show more results button". After clicking the button, the pages loads a few more results, then the button shows up again. The button will not show back up once all the results have loaded
         // Button to expand has this class=ULvh-button show-more-button
         // The buttons parent is a div with class "ULvh" it stays visible the entire time, until all results have been loaded, then the element is removed from the webpage
         Console.Write("Expanding search results...");
         do
         {
+            Console.Write($" expantion #{count+1}... ");
             var showMoreResultsButton = driver.FindElements(By.CssSelector(".ULvh-button")).FirstOrDefault();
             if (showMoreResultsButton != null)
             {
@@ -164,16 +193,58 @@ public static class KayakService
                 Console.Write(" clicking... ");
                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", showMoreResultsButton);
 
+                count--;
+
                 // Sleep a random amount of time to avoid bot detection
-                Thread.Sleep(new Random((int)DateTime.Now.Ticks).Next(1000, 3000));
+                Thread.Sleep(new Random((int)DateTime.Now.Ticks).Next(1000, 2000));
             }
             Thread.Sleep(0);
 
-        } while (!onlyOnce && driver.FindElements(By.CssSelector(".ULvh")).Any());
+        } while ((count < maxtimes) && driver.FindElements(By.CssSelector(".ULvh")).Count > 0);
         Console.WriteLine(" done");
     }
 
     // Example URL: https://www.kayak.com/flights/AUS-BOI/2024-09-20?sort=price_a
     private static string BuildFlightSearchBasePathUrl(string originItaCode, string destinationItaCode, DateOnly departureDate)
        => $"https://www.kayak.com/flights/{originItaCode}-{destinationItaCode}/{departureDate:yyyy-MM-dd}";
+
+    private static string BuildSearchParameters(KayakFlightSearch search)
+    {
+        var parameters = new List<string>();
+
+        if (search.TakeoffTimeRangeStart.HasValue || search.TakeoffTimeRangeEnd.HasValue)
+        {
+            var takeoffStart = search.TakeoffTimeRangeStart?.ToString("hhmm") ?? "0000";
+            var takeoffEnd = search.TakeoffTimeRangeEnd?.ToString("hhmm") ?? "2359";
+            parameters.Add($"takeoff={takeoffStart}-{takeoffEnd}");
+        }
+
+        // TODO: What if the landing time crosses midnight?
+        if (search.LandingTimeRangeStart.HasValue || search.LandingTimeRangeEnd.HasValue)
+
+        {
+            var landingStart = search.LandingTimeRangeStart?.ToString("hhmm") ?? "0000";
+            var landingEnd = search.LandingTimeRangeEnd?.ToString("hhmm") ?? "2359";
+            parameters.Add($"landing={landingStart}-{landingEnd}");
+        }
+
+        if (search.MaxPrice.HasValue)
+            parameters.Add($"price={search.MaxPrice.Value}");
+
+        if (search.MaxStops.HasValue)
+            // examples: "stops=0", "stops=0,1", "stops=0,1,2,3"
+            parameters.Add($"stops={string.Join(",", Enumerable.Range(0, search.MaxStops.Value + 1))}");
+
+        if (search.MaxFlightDuration.HasValue)
+            parameters.Add($"duration=-{(int)search.MaxFlightDuration.Value.TotalMinutes}");
+
+        if (search.MinLayoverTime.HasValue || search.MaxLayoverTime.HasValue)
+        {
+            var minLayover = search.MinLayoverTime?.TotalMinutes.ToString("F0") ?? "0";
+            var maxLayover = search.MaxLayoverTime?.TotalMinutes.ToString("F0") ?? "1440"; // 24 hours
+            parameters.Add($"layoverdur={minLayover}-{maxLayover}");
+        }
+
+        return parameters.Count > 0 ? "&fs=" + string.Join(";", parameters) : "";
+    }
 }
