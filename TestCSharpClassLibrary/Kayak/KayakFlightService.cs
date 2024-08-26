@@ -1,12 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Globalization;
-using System.Web;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.Extensions;
 using OpenQA.Selenium.Support.UI;
-using System.Text.Json;
 
 public static class KayakService
 {
@@ -77,6 +72,10 @@ public static class KayakService
 
                     flight = new KayakFlight
                     {
+                        Provider = "kayak.com",
+                        Uid = resultId,
+                        Url = resultUrl,
+
                         OriginItaCode = originItaCode,
                         DestinationItaCode = destinationItaCode,
                         DepartureTime = departureDateTime,
@@ -86,8 +85,6 @@ public static class KayakService
                         CarrierName = carrierText,
                         TotalPrice = decimal.Parse(ticketPriceText.TrimStart('$')),
                         NumberOfStops = numberOfStops,
-                        Url = resultUrl,
-                        Uid = resultId
                     };
                 }
                 catch (Exception ex)
@@ -153,15 +150,18 @@ public static class KayakService
         // Expand the results by clicking the "Show more results button". After clicking the button, the pages loads a few more results, then the button shows up again. The button will not show back up once all the results have loaded
         // Button to expand has this class=ULvh-button show-more-button
         // The buttons parent is a div with class "ULvh" it stays visible the entire time, until all results have been loaded, then the element is removed from the webpage
+        Console.Write("Expanding search results...");
         do
         {
             var showMoreResultsButton = driver.FindElements(By.CssSelector(".ULvh-button")).FirstOrDefault();
             if (showMoreResultsButton != null)
             {
                 // Scroll into view
+                Console.Write(" scrolling... ");
                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView(true);", showMoreResultsButton);
                 Thread.Sleep(0);
                 // Click the button using javascript
+                Console.Write(" clicking... ");
                 ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", showMoreResultsButton);
 
                 // Sleep a random amount of time to avoid bot detection
@@ -170,6 +170,7 @@ public static class KayakService
             Thread.Sleep(0);
 
         } while (!onlyOnce && driver.FindElements(By.CssSelector(".ULvh")).Any());
+        Console.WriteLine(" done");
     }
 
     // Example URL: https://www.kayak.com/flights/AUS-BOI/2024-09-20?sort=price_a
