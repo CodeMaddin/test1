@@ -2,9 +2,43 @@
 using OpenQA.Selenium;
 using System.Diagnostics;
 using OpenQA.Selenium.Support.Extensions;
+using System.Text.Json;
 
 internal class ScrapingService
 {
+    internal static T? GetCachedResults<T>(string cacheDirectory, string cacheKey, TimeSpan? expiration)
+    {
+        var cacheFilePath = Path.Combine(cacheDirectory, $"{cacheKey}.json");
+        Console.Write($"Checking cache ${cacheKey} @ {cacheFilePath} -- ");
+        if (!File.Exists(cacheFilePath))
+        {
+            Console.WriteLine($"MISS");
+            return default;
+        }
+
+        var fileInfo = new FileInfo(cacheFilePath);
+        if (expiration.HasValue && fileInfo.LastWriteTime.Add(expiration.Value) < DateTime.Now)
+        {
+            Console.WriteLine($"EXPIRED");
+            File.Delete(cacheFilePath);
+            return default;
+        }
+
+        Console.WriteLine($"HIT");
+        var json = File.ReadAllText(cacheFilePath);
+        return JsonSerializer.Deserialize<T>(json);
+    }
+
+    internal static void CacheResults(string cacheDirectory, string cacheKey, object item)
+    {
+        Directory.CreateDirectory(cacheDirectory);
+        var cacheFilePath = Path.Combine(cacheDirectory, $"{cacheKey}.json");
+        Console.Write($"Caching ${cacheKey} @ {cacheFilePath} -- ");
+        var json = JsonSerializer.Serialize(item);
+        File.WriteAllText(cacheFilePath, json);
+        Console.WriteLine($"DONE");
+    }
+
     internal static void SaveErrorFiles(WebDriver driver, DateTime? time = null)
     {
         if (time is null)

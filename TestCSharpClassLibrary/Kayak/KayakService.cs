@@ -16,7 +16,7 @@ public static class KayakService
     public static IEnumerable<KayakFlight> GetSearchResults(string originItaCode, string destinationItaCode, DateOnly departureDate, bool expandSearchResults = false)
     {
         string cacheKey = $"{originItaCode}-{destinationItaCode}-{departureDate:yyyy-MM-dd}";
-        var cachedResults = GetCachedResults<IEnumerable<KayakFlight>>(cacheKey);
+        var cachedResults = ScrapingService.GetCachedResults<IEnumerable<KayakFlight>>(CacheDirectory, cacheKey, CacheExpiration);
 
         if (cachedResults != null)
         {
@@ -102,40 +102,7 @@ public static class KayakService
         }
 
         // After scraping, cache the results
-        CacheResults(cacheKey, flights);
-    }
-
-    private static T? GetCachedResults<T>(string cacheKey)
-    {
-        var cacheFilePath = Path.Combine(CacheDirectory, $"{cacheKey}.json");
-        Console.Write($"Checking cache ${cacheKey} @ {cacheFilePath} -- ");
-        if (!File.Exists(cacheFilePath))
-        {
-            Console.WriteLine($"MISS");
-            return default(T);
-        }
-
-        var fileInfo = new FileInfo(cacheFilePath);
-        if (fileInfo.LastWriteTime.Add(CacheExpiration) < DateTime.Now)
-        {
-            Console.WriteLine($"EXPIRED");
-            File.Delete(cacheFilePath);
-            return default(T);
-        }
-
-        Console.WriteLine($"HIT");
-        var json = File.ReadAllText(cacheFilePath);
-        return JsonSerializer.Deserialize<T>(json);
-    }
-
-    private static void CacheResults(string cacheKey, object item)
-    {
-        Directory.CreateDirectory(CacheDirectory);
-        var cacheFilePath = Path.Combine(CacheDirectory, $"{cacheKey}.json");
-        Console.Write($"Caching ${cacheKey} @ {cacheFilePath} -- ");
-        var json = JsonSerializer.Serialize(item);
-        File.WriteAllText(cacheFilePath, json);
-        Console.WriteLine($"DONE");
+        ScrapingService.CacheResults(CacheDirectory, cacheKey, flights);
     }
 
     public static void PrintFlightHeaderRow()
