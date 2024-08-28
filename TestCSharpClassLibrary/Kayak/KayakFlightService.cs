@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text.Json;
 using HtmlAgilityPack;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
@@ -23,8 +24,7 @@ public class KayakFlightSearch
     public TimeSpan? MinLayoverTime { get; set; }
     public TimeSpan? MaxLayoverTime { get; set; }
 
-    public bool ExpandSearchResults { get; set; } = false;
-    public int MaximumSearchResultExpansion { get; set; } = 2;
+    public int MaximumResultPages { get; set; } = 5;
 }
 
 public static class KayakService
@@ -32,7 +32,142 @@ public static class KayakService
     private const string CacheDirectory = "KayakCache\\Flights";
     private readonly static TimeSpan CacheExpiration = TimeSpan.FromHours(1);
 
-    public static IEnumerable<KayakFlight> GetSearchResults(KayakFlightSearch search)
+
+    // get search results using html agility pack and getting the json results that are embedded in the html in the element <script id="__R9_HYDRATE_DATA__" type="application/json">
+    public static IEnumerable<KayakFlight> GetSearchResults(KayakFlightSearch search) //_UsingHtmlAgilityPack
+    {
+        var cacheKey = GetCacheKey(search);
+
+        // Check for cached results
+        var cachedResults = ScrapingService.GetCachedResults<IEnumerable<KayakFlight>>(CacheDirectory, cacheKey, CacheExpiration);
+        // TEMP: Don't return cached flight results so that we can test out the cached html
+        //if (false) 
+        if (cachedResults != null)
+        {
+            foreach (var result in cachedResults)
+                yield return result;
+            yield break;
+        }
+        var flights = new List<KayakFlight>();
+
+        int pageNumber = 1;
+        bool morePages = false;
+        do
+        {
+            HtmlDocument doc = GetHtmlDoc(search, pageNumber, cacheKey);
+            // Extract the JSON data from the script tag
+            var scriptNode = doc.DocumentNode.EnsureSelectSingleNode("Json Data", "//script[@id='__R9_HYDRATE_DATA__']");
+
+            string jsonData = scriptNode.InnerHtml;
+
+            // Parse the JSON data
+            var flightData = JsonSerializer.Deserialize<JsonElement>(jsonData);
+
+            // Extract flight information from the JSON
+            var resultsList = flightData.EnsureGetProperty("serverData").EnsureGetProperty("FlightResultsList");
+
+            var pageSize = resultsList.EnsureGetProperty("pageSize").GetInt32();
+            var filteredCount = resultsList.EnsureGetProperty("filteredCount").GetInt32();
+            var returnedPageNumber = resultsList.EnsureGetProperty("pageNumber").GetInt32();
+            if (returnedPageNumber != pageNumber)
+            {
+                Console.WriteLine($"Returned page number {returnedPageNumber} does not match requested page number {pageNumber}");
+                throw new Exception($"Returned page number {returnedPageNumber} does not match requested page number {pageNumber}");
+            }
+            morePages = (pageNumber * pageSize) < filteredCount;
+
+            var resultIds = resultsList.EnsureGetProperty("resultIds").EnumerateArray();
+            var results = resultsList.EnsureGetProperty("results");
+
+            foreach (var resultId in resultIds)
+            {
+                if (resultId.GetString().Length == "b13d7cc5b0dea093bc96f5e40b3f13a9".Length)
+                {
+                    var result = results.EnsureGetProperty(resultId.GetString());
+                    var flight = ParseFlightFromJson(result);
+                    flights.Add(flight);
+                    yield return flight;
+                }
+            }
+
+            pageNumber++;
+        } 
+        while (pageNumber <= search.MaximumResultPages && morePages);
+
+        // After scraping, cache the results
+        ScrapingService.CacheResults(CacheDirectory, cacheKey, flights);
+    }
+
+    private static HtmlDocument GetHtmlDoc(KayakFlightSearch search, int pageNumber, string cacheKey)
+    {
+        // Check for cached html
+        var html = ScrapingService.GetCachedResults<string>(CacheDirectory, cacheKey + $"_{pageNumber}_html", CacheExpiration);
+        if (html == null)
+        {
+            var searchBaseUrl = BuildFlightSearchBasePathUrl(search.OriginItaCode, search.DestinationItaCode, search.DepartureDate);
+            var searchUrl = $"{searchBaseUrl}?sort=price_a{BuildSearchParameters(search)}&pageNumber={pageNumber}";
+
+            // Use HttpClient for fast asynchronous web requests
+            using var httpClient = new HttpClient();
+            // httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36");
+
+            // Download the web page asynchronously
+            Console.WriteLine($"Downloading HTML from: {searchUrl}");
+            html = httpClient.GetStringAsync(searchUrl).Result;
+
+            // cache the html for debugging
+            ScrapingService.CacheResults(CacheDirectory, cacheKey + "_html", html);
+        }
+
+        // Parse the HTML
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+        return doc;
+    }
+
+    //generate ParseFlightFromJsonn
+    private static KayakFlight ParseFlightFromJson(JsonElement result)
+    {
+        var flight = new KayakFlight();
+
+        var legs = result.EnsureGetProperty("legs");
+        var leg = legs[0];
+
+        flight.Duration = TimeSpan.FromMinutes(ScrapingService.EnsureGetProperty(leg, "legDurationMinutes").GetInt32());
+
+        var segments = leg.EnsureGetProperty("segments");
+        var firstSegment = segments[0];
+        var lastSegment = segments.EnumerateArray().Last();
+        var departure = firstSegment.EnsureGetProperty("departure");
+        var departureAirport = departure.EnsureGetProperty("airport");
+        flight.OriginItaCode = departureAirport.EnsureGetProperty("code").GetString();
+        flight.DepartureTime = DateTime.Parse(departure.EnsureGetProperty("isoDateTimeLocal").GetString());
+
+        var arrival = lastSegment.EnsureGetProperty("arrival");
+        var arrivalAirport = arrival.EnsureGetProperty("airport");
+        flight.DestinationItaCode = arrivalAirport.EnsureGetProperty("code").GetString();
+        flight.ArrivalTime = DateTime.Parse(arrival.EnsureGetProperty("isoDateTimeLocal").GetString());
+
+        flight.NumberOfStops = segments.GetArrayLength() - 1;
+
+        var airline = leg.EnsureGetProperty("displayAirline");
+        flight.CarrierName = airline.EnsureGetProperty("name").GetString();
+
+        var trackingData = result.EnsureGetProperty("trackingDataLayer");
+        flight.TotalPrice = trackingData.EnsureGetProperty("tagLayerPrice").GetDecimal();
+
+        flight.Provider = "kayak.com";
+        flight.Uid = result.EnsureGetProperty("resultId").GetString();
+        flight.Url = $"https://www.kayak.com/flights/{flight.OriginItaCode}-{flight.DestinationItaCode}/f{flight.Uid}";
+
+        // Calculate Days
+        flight.Days = (flight.ArrivalTime.Date - flight.DepartureTime.Date).Days;
+
+        return flight;
+    }
+
+    public static string GetCacheKey(KayakFlightSearch search)
     {
         string cacheKey = $"{search.OriginItaCode}-{search.DestinationItaCode}-{search.DepartureDate:yyyyMMdd}" +
             $"-{search.MaxPrice ?? 0}" +
@@ -42,7 +177,12 @@ public static class KayakService
             $"-{(int)(search.MaxFlightDuration?.TotalMinutes ?? -1)}" +
             $"-{(int)(search.MinLayoverTime?.TotalMinutes ?? -1)}-{(int)(search.MaxLayoverTime?.TotalMinutes ?? -1)}";
 
+        return cacheKey;
+    }
 
+    public static IEnumerable<KayakFlight> GetSearchResults_old(KayakFlightSearch search)
+    {
+        string cacheKey = GetCacheKey(search);
         // TEMP: Don't return cached flight results so that we can test out the cached html
         // Check for cached results
         var cachedResults = ScrapingService.GetCachedResults<IEnumerable<KayakFlight>>(CacheDirectory, cacheKey, CacheExpiration);
@@ -63,7 +203,7 @@ public static class KayakService
         var html = ScrapingService.GetCachedResults<string>(CacheDirectory, cacheKey + "_html", CacheExpiration);
         if (html == null)
         {
-            html = GetResultsWebPageHtml(searchUrl, search.ExpandSearchResults ? search.MaximumSearchResultExpansion : 0);
+            html = GetResultsWebPageHtml(searchUrl, search.MaximumResultPages -1);
             // cache the html for debugging
             ScrapingService.CacheResults(CacheDirectory, cacheKey + "_html", html);
         }
@@ -78,19 +218,19 @@ public static class KayakService
         // Extract the flight & ticket data for each search result
         foreach (var fareElement in fareElements)
         {
-            var resultId = ScrapingService.EnsureGetAttributeValue("result id", fareElement, "data-resultid");
+            var resultId = fareElement.EnsureGetAttributeValue("result id", "data-resultid");
             var resultUrl = $"{searchBaseUrl}/f{resultId}";
 
             // eg: "4:00 pm – 5:05 pm", "11:00 pm – 7:41 am\r\n+2"
-            var flightTimesText = ScrapingService.EnsureSelectSingleNode("flight times", fareElement, ".//div[contains(@class, 'VY2U')]//div[contains(@class, 'vmXl-mod-variant-large')]").InnerText;
+            var flightTimesText = fareElement.EnsureSelectSingleNode("flight times", ".//div[contains(@class, 'VY2U')]//div[contains(@class, 'vmXl-mod-variant-large')]").InnerText;
             // eg: "10h 41m"
-            var flightDurationText = ScrapingService.EnsureSelectSingleNode("flight duration", fareElement, ".//div[contains(@class, 'xdW8')]//div[contains(@class, 'vmXl-mod-variant-default')]").InnerText;
+            var flightDurationText = fareElement.EnsureSelectSingleNode("flight duration", ".//div[contains(@class, 'xdW8')]//div[contains(@class, 'vmXl-mod-variant-default')]").InnerText;
             // eg: "Frontier"
-            var carrierText = ScrapingService.EnsureSelectSingleNode("carrier", fareElement, ".//div[contains(@class, 'VY2U')]//div[contains(@class, 'c_cgF-mod-variant-default')]").InnerText;
+            var carrierText = fareElement.EnsureSelectSingleNode("carrier", ".//div[contains(@class, 'VY2U')]//div[contains(@class, 'c_cgF-mod-variant-default')]").InnerText;
             // eg: "$100"
-            var ticketPriceText = ScrapingService.EnsureSelectSingleNode("ticket price", fareElement, ".//*[contains(@class, 'f8F1-price-text')]").InnerText;
+            var ticketPriceText = fareElement.EnsureSelectSingleNode("ticket price", ".//*[contains(@class, 'f8F1-price-text')]").InnerText;
             // eg: "nonstop", "1 stop", "2 stops"
-            var stopsText = ScrapingService.EnsureSelectNodes("stops", fareElement, ".//*[contains(@class, 'JWEO-stops-text')]");
+            var stopsText = fareElement.EnsureSelectNodes("stops", ".//*[contains(@class, 'JWEO-stops-text')]");
             var numberOfStops = stopsText.Count > 0 ? stopsText[0].InnerText.Contains("nonstop", StringComparison.InvariantCultureIgnoreCase) ? 0 : int.Parse(stopsText[0].InnerText.Split(' ')[0]) : 0;
 
             var flightTimes = flightTimesText.Split('–');

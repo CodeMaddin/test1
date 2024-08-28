@@ -37,6 +37,7 @@ app.MapGet("/flights/{originItaCode}/{destinationItaCode}/{departureDate}", (str
         OriginItaCode = originItaCode,
         DestinationItaCode = destinationItaCode,
         DepartureDate = parsedDate,
+        MaximumResultPages = 2,
     };
     return Results.Ok(KayakService.GetSearchResults(search));
 

@@ -8,8 +8,7 @@ var search = new KayakFlightSearch
     MaxStops = 1,
     TakeoffTimeRangeStart = new TimeOnly(8,0),
 
-    ExpandSearchResults = true,
-    MaximumSearchResultExpansion = 0,
+    MaximumResultPages = 3,
 };
 foreach (var flight in KayakService.GetSearchResults(search))
 {

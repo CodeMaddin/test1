@@ -1,0 +1,323 @@
+{
+  "0ac8134d3779aa411bfdc57a1c68d270-sponsored": {
+    "resultid": "0ac8134d3779aa411bfdc57a1c68d270",
+    "uiresultid": "0ac8134d3779aa411bfdc57a1c68d270-sponsored",
+    "legs": [
+      {
+        "legid": "ausdtw1726862400000nk5101726894800000nk37852",
+        "legindex": 0,
+        "distinctairlines": [
+          {
+            "code": "nk",
+            "name": "spirit airlines",
+            "logourl": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fv\u002fnk.png?crop=false&width=108&height=92&fallback=default1.png&_v=ee25ddeebebbac3394dc29d6b32e4b7b"
+          }
+        ],
+        "displayairline": {
+          "code": "nk",
+          "name": "spirit airlines",
+          "logourl": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fv\u002fnk.png?crop=false&width=108&height=92&fallback=default1.png&_v=ee25ddeebebbac3394dc29d6b32e4b7b"
+        },
+        "legdurationdisplay": "10h 46m",
+        "legdurationminutes": 646,
+        "segments": [
+          {
+            "flightnumber": "510",
+            "airline": {
+              "code": "nk",
+              "name": "spirit airlines",
+              "logourl": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fv\u002fnk.png?crop=false&width=108&height=92&fallback=default1.png&_v=ee25ddeebebbac3394dc29d6b32e4b7b"
+            },
+            "departure": {
+              "airport": {
+                "code": "aus",
+                "displayname": "austin bergstrom",
+                "fulldisplayname": "austin bergstrom",
+                "citycode": "aus",
+                "cityname": "austin"
+              },
+              "isodatetimelocal": "2024-09-20t20:33:00"
+            },
+            "arrival": {
+              "airport": {
+                "code": "mco",
+                "displayname": "orlando",
+                "fulldisplayname": "orlando",
+                "citycode": "orl",
+                "cityname": "orlando"
+              },
+              "isodatetimelocal": "2024-09-21t00:15:00",
+              "isdatemismatch": true
+            },
+            "duration": "2h 42m",
+            "durationminutes": 162,
+            "cabindisplay": "economy",
+            "cabincode": "e",
+            "segmentqualityitems": {
+              "equipmenttypename": "airbus a320 (sharklets)",
+              "qualityitems": [
+                {
+                  "icon": "flight",
+                  "msg": "airbus a320 (sharklets) (narrow-body jet)"
+                },
+                {
+                  "icon": "wifi",
+                  "msg": "streaming capable wi-fi (fee)"
+                },
+                {
+                  "icon": "seat_negative",
+                  "msg": "28\" seat pitch"
+                },
+                {
+                  "icon": "food",
+                  "msg": "snacks (fee)"
+                }
+              ]
+            },
+            "layover": {
+              "duration": "5h 30m",
+              "durationminutes": 330,
+              "message": "change planes in orlando (mco)",
+              "islong": true
+            }
+          },
+          {
+            "flightnumber": "3785",
+            "airline": {
+              "code": "nk",
+              "name": "spirit airlines",
+              "logourl": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fv\u002fnk.png?crop=false&width=108&height=92&fallback=default1.png&_v=ee25ddeebebbac3394dc29d6b32e4b7b"
+            },
+            "departure": {
+              "airport": {
+                "code": "mco",
+                "displayname": "orlando",
+                "fulldisplayname": "orlando",
+                "citycode": "orl",
+                "cityname": "orlando"
+              },
+              "isodatetimelocal": "2024-09-21t05:45:00"
+            },
+            "arrival": {
+              "airport": {
+                "code": "dtw",
+                "displayname": "detroit metropolitan wayne county",
+                "fulldisplayname": "detroit metropolitan wayne county",
+                "citycode": "dtt",
+                "cityname": "detroit"
+              },
+              "isodatetimelocal": "2024-09-21t08:19:00"
+            },
+            "duration": "2h 34m",
+            "durationminutes": 154,
+            "cabindisplay": "economy",
+            "cabincode": "e",
+            "segmentqualityitems": {
+              "equipmenttypename": "airbus a320neo",
+              "qualityitems": [
+                {
+                  "icon": "flight",
+                  "msg": "airbus a320neo (narrow-body jet)"
+                },
+                {
+                  "icon": "wifi",
+                  "msg": "streaming capable wi-fi (fee)"
+                },
+                {
+                  "icon": "seat_negative",
+                  "msg": "28\" seat pitch"
+                },
+                {
+                  "icon": "food",
+                  "msg": "snacks (fee)"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "trackingdatalayer": {
+      "taglayerprice": 72
+    },
+    "optionsbyfare": [
+      {
+        "farename": {
+          "fareid": "economy",
+          "displayname": "economy"
+        },
+        "options": [
+          {
+            "url": "\u002fs\u002fclickthrough.jsp?ctyp=sponsoredresultadbooking&ptyp=f&orig=f..rp..m1&plid=9980258&pid=expediad_fsr_us&prv=expediad_fsr_us&srch=myaidznmx_&ploc=us&atype=sponsoredresult&prc=72.00&cpnid=7094253&xpext=&aidext=&lid=expediad_fsr_us-myaidznmx_&qorig=airport:aus&octid=&qdest=airport:dtw&qstart=1726804800000&qend=1726804800000&qtravelers=1&qrooms=0&qow=true&qfcc=e&qdctid=27725&qdac=dtw&qshour=-1&qehour=-1&qns=false&qnearby=0&qnearbyo=false&qnearbyd=false&pj=r_5p64jfprmi9eqgaztplq%3d%3d&ah=jvxfrbkrkhksvgzmwvepyj66sqdvlhtermwttiqp84m&resid=0ac8134d3779aa411bfdc57a1c68d270&bookid=f828083860692428980e0c82f104643&seekprov=expediaair&trueprov=expediaair&fid=&rank=1&stid=&qadults=1&qchild=0&_sid_=r-41mdepm3kfiucyh$0tuz1-jf1ovv6fdbbc6ip0rpgeizyrzfkhgj5_22_pvkekh&btype=dgqbzhorrmspoxmnag7plg%3d%3d&bkey=ted1leb84cm%3d&abv=vo%24pj4jwfgg%3d",
+            "bookingid": "f828083860692428980e0c82f104643",
+            "displayprice": "$72",
+            "providerinfo": {
+              "code": "expediaair",
+              "displayname": "expedia",
+              "logourls": [
+                {
+                  "image": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fv\u002fexpediaair.png?crop=false&width=108&height=92&fallback=default3.png&_v=256f53d3d3c5bfff6cae94a2acfd9af7",
+                  "horizontalimage": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fh\u002fexpediaair.png?crop=false&width=88&height=31&fallback=default3.png&_v=25d737579c9bbd2c9c9567822170dda6",
+                  "name": "expedia"
+                }
+              ],
+              "currency": "usd",
+              "countryname": "united states"
+            },
+            "fees": {
+              "rawprice": 72,
+              "baseprice": "$72",
+              "totalprice": "$72",
+              "carryonbagdata": {
+                "status": "fee",
+                "displayprice": "$68",
+                "numselected": 0
+              },
+              "checkedbagdata": {
+                "status": "unknown",
+                "numselected": 0,
+                "secondbag": {
+                  "status": "unknown"
+                }
+              },
+              "carryondisplay": "not included",
+              "checkedbagdisplay": "unknown",
+              "checkedbagdisclosures": [
+                {
+                  "disclosures": [
+                    "up to 62in total"
+                  ]
+                }
+              ]
+            },
+            "flags": {
+              "isfeaturedprovider": true,
+              "issponsored": true,
+              "isfreecancellation": true
+            },
+            "qualityflags": {
+              "flag": "",
+              "cancellation": "free 24h",
+              "accuracy": "invalid",
+              "standards": "invalid",
+              "fees": "invalid",
+              "score": 55
+            },
+            "fareamenities": [
+              {
+                "type": "carryon_bag",
+                "restriction": "fee",
+                "prices": {
+                  "first_bag": {
+                    "price": 68,
+                    "currencyformatstring": "$%s",
+                    "localizedprice": null
+                  }
+                }
+              },
+              {
+                "type": "checked_bag",
+                "restriction": "fee"
+              },
+              {
+                "type": "seat_selection",
+                "restriction": "fee"
+              },
+              {
+                "type": "legroom",
+                "restriction": "fee"
+              },
+              {
+                "type": "change",
+                "restriction": "included"
+              },
+              {
+                "type": "refundable",
+                "restriction": "unavailable"
+              }
+            ]
+          }
+        ],
+        "uicabincode": "e",
+        "topprice": {
+          "price": 72,
+          "currencyformatstring": "$%s",
+          "localizedprice": "$72"
+        },
+        "isfeatured": true
+      }
+    ],
+    "displayairline": {
+      "code": "nk",
+      "name": "spirit airlines",
+      "logourl": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fv\u002fnk.png?crop=false&width=108&height=92&fallback=default1.png&_v=ee25ddeebebbac3394dc29d6b32e4b7b",
+      "baggagepolicyinfo": [
+        {
+          "bagtype": "personal",
+          "bagrestriction": {
+            "dimensions": "up to 17 x 13 x 7in"
+          }
+        },
+        {
+          "bagtype": "carryon",
+          "bagrestriction": {
+            "dimensions": "up to 22 x 18 x 9in"
+          }
+        },
+        {
+          "bagtype": "checked",
+          "bagrestriction": {
+            "weight": null
+          }
+        }
+      ],
+      "airlinefeeurl": "https:\u002f\u002fwww.spirit.com\u002foptionalservices.aspx?_ga=2.74795794.1422511387.1563966207-1059725800.1563966207"
+    },
+    "distinctairlines": [
+      {
+        "code": "nk",
+        "name": "spirit airlines",
+        "logourl": "https:\u002f\u002fcontent.r9cdn.net\u002frimg\u002fprovider-logos\u002fairlines\u002fv\u002fnk.png?crop=false&width=108&height=92&fallback=default1.png&_v=ee25ddeebebbac3394dc29d6b32e4b7b",
+        "baggagepolicyinfo": [
+          {
+            "bagtype": "personal",
+            "bagrestriction": {
+              "dimensions": "up to 17 x 13 x 7in"
+            }
+          },
+          {
+            "bagtype": "carryon",
+            "bagrestriction": {
+              "dimensions": "up to 22 x 18 x 9in"
+            }
+          },
+          {
+            "bagtype": "checked",
+            "bagrestriction": {
+              "weight": null
+            }
+          }
+        ],
+        "airlinefeeurl": "https:\u002f\u002fwww.spirit.com\u002foptionalservices.aspx?_ga=2.74795794.1422511387.1563966207-1059725800.1563966207"
+      }
+    ],
+    "cabincode": "e",
+    "fsrdata": {
+      "fspid": "9980258",
+      "adkey": "0ac8134d3779aa411bfdc57a1c68d2701",
+      "sponsoredresulttrackurl": "",
+      "sponsoredview": {
+        "providername": "expedia",
+        "backgroundcolor": "#fddb32",
+        "headlinetext": "book once, earn twice",
+        "taglinetext": "book now to earn your airline miles on top of our rewards.",
+        "logo": "\u002fpicasso\u002fsvg?url=\u002fkimg\u002fa\u002fsuppliers\u002f7005577\u002fvector-logos\u002f450abeab28b0907d.svg"
+      },
+      "companyname": "expedia group, inc. ads"
+    },
+    "issaved": false,
+    "ischeapestrateprivateandhidden": false,
+    "companyname": "expedia group, inc. ads",
+    "itemtype": "result"
+  },
+}

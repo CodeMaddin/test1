@@ -8,26 +8,50 @@ using HtmlAgilityPack;
 internal static class Extensions
 {
     public static string BracketText(this HtmlNode node)
-    {
-        return node?.OuterHtml[..(node.OuterHtml.IndexOf('>') + 1)].Trim() ?? "(null)";
-    }
+        => node?.OuterHtml[..(node.OuterHtml.IndexOf('>') + 1)].Trim() ?? "(null)";
+
+    public static JsonElement EnsureGetProperty(this JsonElement element, string propertyName)
+        => ScrapingService.EnsureGetProperty(element, propertyName);
+
+    public static HtmlNode EnsureSelectSingleNode(this HtmlNode node, string featureName, string xpath)
+        => ScrapingService.EnsureSelectSingleNode(featureName, node, xpath);
+    public static HtmlNodeCollection EnsureSelectNodes(this HtmlNode node, string featureName, string xpath)
+        => ScrapingService.EnsureSelectNodes(featureName, node, xpath);
+    public static string EnsureGetAttributeValue(this HtmlNode node, string featureName, string arributeName)
+        => ScrapingService.EnsureGetAttributeValue(featureName, node, arributeName);
 }
 
-// Make a special exception class for the scraping functions. It should have properties for the featureName, node, and xpath, and node title
-internal class ScrapingComponentException(string featureName, HtmlNode? node, string path, string message, Exception? innerException = null) : Exception(message, innerException)
+internal class ScrapingNodeException(string featureName, HtmlNode? node, string path, string message, Exception? innerException = null) : ScrapingException(featureName, message, innerException)
 {
-    public string FeatureName { get; } = featureName;
     public HtmlNode? Node { get; } = node;
     public string Path { get; } = path;
     public string NodeFirstLineText => Node?.BracketText() ?? "";
 }
+internal class ScrapingJsonElementException(string featureName, JsonElement? element, string message, Exception? innerException = null) : ScrapingException(featureName, message, innerException)
+{
+    public JsonElement? Element { get; } = element;
+}
+internal class ScrapingException(string featureName, string message, Exception? innerException = null) : Exception(message, innerException)
+{
+    public string FeatureName { get; } = featureName;
+}
 
 internal class ScrapingService
 {
+    internal static JsonElement EnsureGetProperty(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out JsonElement property))
+        {
+            Console.WriteLine($"Property '{propertyName}' not found in JSON element.");
+            throw new ScrapingJsonElementException(propertyName, element, $"Property '{propertyName}' not found in JSON element.");
+        }
+        return property;        
+    }
+
     internal static HtmlNodeCollection EnsureSelectNodes(string featureName, HtmlNode node, string xpath)
     {
         if(node == null)
-            throw new ScrapingComponentException(featureName, null, xpath, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
+            throw new ScrapingNodeException(featureName, null, xpath, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
 
         HtmlNodeCollection? results;
         try
@@ -37,12 +61,12 @@ internal class ScrapingService
         catch(Exception ex)
         {
             Console.WriteLine($"Error, failed to select nodes for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node.XPath})");
-            throw new ScrapingComponentException(featureName, node, xpath, $"Error, failed to select nodes for feature '{featureName}'", ex);
+            throw new ScrapingNodeException(featureName, node, xpath, $"Error, failed to select nodes for feature '{featureName}'", ex);
         }
         if (results == null || results.Count == 0)
         {
             Console.WriteLine($"Error, no nodes found for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node.XPath})");
-            throw new ScrapingComponentException(featureName, node, xpath, $"No nodes found for feature '{featureName}'");   
+            throw new ScrapingNodeException(featureName, node, xpath, $"No nodes found for feature '{featureName}'");   
         }
         return results;
     }
@@ -50,7 +74,7 @@ internal class ScrapingService
     internal static HtmlNode EnsureSelectSingleNode(string featureName, HtmlNode node, string xpath)
     {
         if (node == null)
-            throw new ScrapingComponentException(featureName, null, xpath, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
+            throw new ScrapingNodeException(featureName, null, xpath, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
 
         HtmlNode? result;
         try
@@ -60,12 +84,12 @@ internal class ScrapingService
         catch(Exception ex)
         {
             Console.WriteLine($"Error, failed to select node for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node.XPath})");
-            throw new ScrapingComponentException(featureName, node, xpath, $"Failed to select node for feature '{featureName}'", ex);
+            throw new ScrapingNodeException(featureName, node, xpath, $"Failed to select node for feature '{featureName}'", ex);
         }
         if (result == null)
         {
             Console.WriteLine($"Error, no node found for feature '{featureName}' using xpath: {xpath} on {node.BracketText()} @ ({node?.XPath})");
-            throw new ScrapingComponentException(featureName, node, xpath, $"No node found for feature '{featureName}'");
+            throw new ScrapingNodeException(featureName, node, xpath, $"No node found for feature '{featureName}'");
         }
         return result;
     }
@@ -73,7 +97,7 @@ internal class ScrapingService
     internal static string EnsureGetAttributeValue(string featureName, HtmlNode node, string attributeName)
     {
         if (node == null)
-            throw new ScrapingComponentException(featureName, null, attributeName, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
+            throw new ScrapingNodeException(featureName, null, attributeName, $"Node is null for feature '{featureName}'", new ArgumentNullException(nameof(node)));
 
         string? attributeValue;
         try
@@ -83,12 +107,12 @@ internal class ScrapingService
         catch(Exception ex)
         {
             Console.WriteLine($"Error, failed to get attribute '{attributeName}' for '{featureName}' on {node.BracketText()} @ ({node.XPath})");
-            throw new ScrapingComponentException(featureName, node, attributeName, $"Error, failed to get attribute '{attributeName}' for '{featureName}'", ex);
+            throw new ScrapingNodeException(featureName, node, attributeName, $"Error, failed to get attribute '{attributeName}' for '{featureName}'", ex);
         }
         if (attributeValue == null)
         {
             Console.WriteLine($"Error, attribute '{attributeName}' not found for '{featureName}' on {node.BracketText()} @ ({node.XPath})");
-            throw new ScrapingComponentException(featureName, node, attributeName, $"Error, attribute '{attributeName}' not found for '{featureName}'");
+            throw new ScrapingNodeException(featureName, node, attributeName, $"Error, attribute '{attributeName}' not found for '{featureName}'");
         }
         return attributeValue;
     }
