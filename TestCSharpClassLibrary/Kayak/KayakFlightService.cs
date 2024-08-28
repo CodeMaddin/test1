@@ -41,8 +41,8 @@ public static class KayakService
         // Check for cached results
         var cachedResults = ScrapingService.GetCachedResults<IEnumerable<KayakFlight>>(CacheDirectory, cacheKey, CacheExpiration);
         // TEMP: Don't return cached flight results so that we can test out the cached html
-        //if (false) 
-        if (cachedResults != null)
+        if (false) 
+        //if (cachedResults != null)
         {
             foreach (var result in cachedResults)
                 yield return result;
@@ -100,8 +100,9 @@ public static class KayakService
 
     private static HtmlDocument GetHtmlDoc(KayakFlightSearch search, int pageNumber, string cacheKey)
     {
+        var htmlCacheKey = cacheKey + $"_{pageNumber}";
         // Check for cached html
-        var html = ScrapingService.GetCachedResults<string>(CacheDirectory, cacheKey + $"_{pageNumber}_html", CacheExpiration);
+        var html = ScrapingService.GetCachedResults<string>(CacheDirectory, htmlCacheKey, CacheExpiration);
         if (html == null)
         {
             var searchBaseUrl = BuildFlightSearchBasePathUrl(search.OriginItaCode, search.DestinationItaCode, search.DepartureDate);
@@ -117,7 +118,7 @@ public static class KayakService
             html = httpClient.GetStringAsync(searchUrl).Result;
 
             // cache the html for debugging
-            ScrapingService.CacheResults(CacheDirectory, cacheKey + "_html", html);
+            ScrapingService.CacheResults(CacheDirectory, htmlCacheKey, html);
         }
 
         // Parse the HTML
